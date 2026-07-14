@@ -13,6 +13,7 @@ export default function AdminDepositSettingsPage() {
   const [enabled, setEnabled] = useState(defaultDepositSettings.enabled);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState(defaultDepositSettings.qrCodeDataUrl);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
   const { data, refresh } = usePollingJson<{ settings: DepositSettings }>("/api/settings/deposit");
 
   useEffect(() => {
@@ -46,26 +47,41 @@ export default function AdminDepositSettingsPage() {
           onSubmit={async (event) => {
             event.preventDefault();
 
+            setSaved(false);
+            setError("");
+
+            if (!walletAddress.trim()) {
+              setError("Enter a valid deposit wallet address.");
+              return;
+            }
+            if (!qrCodeDataUrl) {
+              setError("Upload a QR code image for the wallet.");
+              return;
+            }
+
             const response = await fetch("/api/settings/deposit", {
               method: "PUT",
               headers: {
                 "Content-Type": "application/json",
               },
+              credentials: "include",
               body: JSON.stringify({
-              walletAddress,
-              network,
-              walletLabel,
-              enabled,
-              qrCodeDataUrl,
+                walletAddress,
+                network,
+                walletLabel,
+                enabled,
+                qrCodeDataUrl,
               }),
             });
 
+            const payload = (await response.json()) as { message?: string };
             if (!response.ok) {
+              setError(payload.message ?? "Unable to save deposit settings.");
               return;
             }
 
             setSaved(true);
-            void refresh();
+            await refresh();
           }}
         >
           <div className="md:col-span-2">
@@ -141,6 +157,7 @@ export default function AdminDepositSettingsPage() {
         </div>
       </PanelCard>
 
+      {error ? <p className="text-sm text-rose-300">{error}</p> : null}
       {saved ? <Toast type="success" message="Deposit settings saved successfully." /> : null}
     </div>
   );

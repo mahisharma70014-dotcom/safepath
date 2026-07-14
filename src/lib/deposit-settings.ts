@@ -11,11 +11,11 @@ export type DepositSettings = {
 const SETTINGS_KEY = "safepath_deposit_settings";
 
 export const defaultDepositSettings: DepositSettings = {
-  qrCodeDataUrl: "",
-  walletAddress: "",
-  network: "TRC20",
-  walletLabel: "Primary Treasury Wallet",
-  enabled: false,
+  qrCodeDataUrl: "/image/bep20.png",
+  walletAddress: "0x997700b3bFf8f9F0e963609AD290962116e9FA77",
+  network: "BEP20",
+  walletLabel: "Primary Treasury Wallet (BEP20)",
+  enabled: true,
 };
 
 const canUseStorage = () => typeof window !== "undefined";

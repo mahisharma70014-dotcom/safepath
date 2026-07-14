@@ -13,7 +13,7 @@ export function usePollingJson<T>(url: string, intervalMs = 4000) {
 
     const load = async () => {
       try {
-        const response = await fetch(url, { cache: "no-store" });
+        const response = await fetch(url, { cache: "no-store", credentials: "include" });
         const payload = (await response.json()) as T & { message?: string };
         if (!mounted) return;
         if (!response.ok) {
@@ -42,5 +42,5 @@ export function usePollingJson<T>(url: string, intervalMs = 4000) {
     };
   }, [url, intervalMs]);
 
-  return { data, loading, error, refresh: () => fetch(url, { cache: "no-store" }).then((res) => res.json()).then((payload) => setData(payload)) };
+  return { data, loading, error, refresh: () => fetch(url, { cache: "no-store", credentials: "include" }).then((res) => res.json()).then((payload) => setData(payload)) };
 }
