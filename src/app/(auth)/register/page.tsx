@@ -1,6 +1,5 @@
 "use client";
 
-import { isCompanyEmail } from "@/lib/auth";
 import { Toast } from "@/components/ui/toast";
 import { auth, isFirebaseConfigured } from "@/lib/firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
@@ -18,7 +17,7 @@ export default function RegisterPage() {
       <div className="mb-6 text-center">
         <p className="text-xs uppercase tracking-[0.3em] text-cyan-300/80">SafePath DT Panel</p>
         <h1 className="mt-3 text-3xl font-semibold text-slate-50">Create Account</h1>
-        <p className="mt-2 text-sm text-slate-400">Register with email and secure your seller profile</p>
+        <p className="mt-2 text-sm text-slate-400">Register with any email and create your account</p>
       </div>
 
       <form
@@ -32,12 +31,6 @@ export default function RegisterPage() {
           const phone = String(formData.get("phone") ?? "").trim();
           const password = String(formData.get("password") ?? "");
           const confirmPassword = String(formData.get("confirmPassword") ?? "");
-
-          if (!isCompanyEmail(email)) {
-            setError("Use company email only for registration.");
-            setToast(false);
-            return;
-          }
 
           if (password !== confirmPassword) {
             setError("Password and confirm password must match.");
