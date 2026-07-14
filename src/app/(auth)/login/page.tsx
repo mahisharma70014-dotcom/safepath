@@ -1,7 +1,8 @@
 "use client";
 
-import { findUser, setSession } from "@/lib/auth";
 import { Toast } from "@/components/ui/toast";
+import { auth, isFirebaseConfigured } from "@/lib/firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -21,34 +22,49 @@ export default function LoginPage() {
 
       <form
         className="space-y-4"
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
 
           const formData = new FormData(event.currentTarget);
           const email = String(formData.get("email") ?? "").trim();
           const password = String(formData.get("password") ?? "");
-          const remember = formData.get("remember") === "on";
 
-          const user = findUser(email, password);
-          if (!user) {
-            setError("Invalid email or password.");
+          if (!isFirebaseConfigured || !auth) {
+            setError("Firebase authentication is not configured.");
             setShowToast(false);
             return;
           }
 
-          setError("");
-          setSession(
-            {
-              email: user.email,
-              fullName: user.fullName,
-              role: user.role,
-            },
-            remember,
-          );
-          setShowToast(true);
+          try {
+            const credential = await signInWithEmailAndPassword(auth, email, password);
+            const idToken = await credential.user.getIdToken();
 
-          const target = user.role === "admin" ? "/admin/dashboard" : "/seller/dashboard";
-          setTimeout(() => router.push(target), 500);
+            const sessionResponse = await fetch("/api/auth/session", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ idToken }),
+            });
+
+            const payload = (await sessionResponse.json()) as {
+              user?: { role: "seller" | "admin" };
+              message?: string;
+            };
+
+            if (!sessionResponse.ok || !payload.user) {
+              throw new Error(payload.message ?? "Unable to create secure session.");
+            }
+
+            setError("");
+            setShowToast(true);
+
+            const target = payload.user.role === "admin" ? "/admin/dashboard" : "/seller/dashboard";
+            setTimeout(() => router.push(target), 500);
+          } catch (loginError) {
+            setError(loginError instanceof Error ? loginError.message : "Invalid email or password.");
+            setShowToast(false);
+          }
         }}
       >
         <div>
@@ -63,7 +79,7 @@ export default function LoginPage() {
 
         <div className="flex items-center justify-between text-sm">
           <label className="flex items-center gap-2 text-slate-300">
-            <input name="remember" type="checkbox" className="h-4 w-4 rounded border-cyan-700 bg-transparent" />
+            <input type="checkbox" className="h-4 w-4 rounded border-cyan-700 bg-transparent" disabled />
             Remember me
           </label>
           <Link href="/forgot-password" className="text-cyan-300 hover:text-cyan-100">

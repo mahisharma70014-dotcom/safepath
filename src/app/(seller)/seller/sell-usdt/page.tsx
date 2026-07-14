@@ -3,39 +3,42 @@
 import { PanelCard } from "@/components/ui/panel-card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Toast } from "@/components/ui/toast";
-import { getSession } from "@/lib/auth";
-import {
-  getPaymentDetailsLabel,
-  getPaymentRate,
-  getSellSettings,
-  getWalletState,
-  PaymentMethod,
-  submitSellRequest,
-} from "@/lib/system-data";
-import { useEffect, useMemo, useState } from "react";
+import { usePollingJson } from "@/hooks/use-polling-json";
+import type { PaymentMethod, SellSettings } from "@/lib/data-model";
+import { useMemo, useState } from "react";
 
 export default function SellUsdtPage() {
-  const [availableUsdt, setAvailableUsdt] = useState(0);
+  const { data: walletData, refresh: refreshWallet } = usePollingJson<{
+    wallet: { availableUsdt: number };
+  }>("/api/wallet");
+  const { data: settingsData } = usePollingJson<{ settings: SellSettings }>("/api/settings/sell");
+  const availableUsdt = walletData?.wallet.availableUsdt ?? 0;
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("UPI");
   const [amount, setAmount] = useState(1000);
   const [network, setNetwork] = useState<"TRC20" | "BEP20" | "ERC20">("TRC20");
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
-  const [settings, setSettings] = useState(getSellSettings());
+  const settings = settingsData?.settings;
 
-  useEffect(() => {
-    const session = getSession();
-    const email = session?.email ?? "seller@company.com";
-    setAvailableUsdt(getWalletState(email).availableUsdt);
-    setSettings(getSellSettings());
-  }, []);
-
-  const rate = useMemo(() => getPaymentRate(paymentMethod, settings), [paymentMethod, settings]);
+  const rate = useMemo(() => {
+    if (!settings) return 0;
+    return paymentMethod === "UPI"
+      ? settings.upiRate
+      : paymentMethod === "CDM"
+        ? settings.cdmRate
+        : settings.mixRate;
+  }, [paymentMethod, settings]);
   const payout = useMemo(() => amount * rate, [amount, rate]);
-  const paymentDetails = useMemo(
-    () => getPaymentDetailsLabel(paymentMethod, settings),
-    [paymentMethod, settings],
-  );
+  const paymentDetails = useMemo(() => {
+    if (!settings) return "";
+    if (paymentMethod === "UPI") {
+      return `UPI ID: ${settings.upiId} | Holder: ${settings.upiHolder}`;
+    }
+    if (paymentMethod === "CDM") {
+      return `Bank: ${settings.bankName} | A/C: ${settings.accountNumber} | IFSC: ${settings.ifsc}`;
+    }
+    return `UPI: ${settings.upiId} | Bank A/C: ${settings.accountNumber}`;
+  }, [paymentMethod, settings]);
 
   return (
     <div className="space-y-6">
@@ -44,11 +47,8 @@ export default function SellUsdtPage() {
       <PanelCard title="Create Sell Order" subtitle="Submit and track your sell request">
         <form
           className="grid gap-4 md:grid-cols-2"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
-
-            const session = getSession();
-            const email = session?.email ?? "seller@company.com";
 
             if (amount <= 0) {
               setError("Enter a valid sell amount.");
@@ -61,16 +61,24 @@ export default function SellUsdtPage() {
             }
 
             try {
-              submitSellRequest({
-                userEmail: email,
-                amountUsdt: amount,
-                network,
-                paymentMethod,
-                rate,
-                estimatedInr: payout,
-                payoutDetails: paymentDetails,
+              const response = await fetch("/api/requests", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  type: "sell",
+                  amountUsdt: amount,
+                  network,
+                  paymentMethod,
+                }),
               });
-              setAvailableUsdt(getWalletState(email).availableUsdt);
+              const payload = (await response.json()) as { message?: string };
+              if (!response.ok) {
+                throw new Error(payload.message ?? "Unable to create sell order.");
+              }
+
+              await refreshWallet();
               setError("");
             } catch (submitError) {
               setError(submitError instanceof Error ? submitError.message : "Unable to create sell order.");
@@ -152,7 +160,7 @@ export default function SellUsdtPage() {
           <StatusPill status="Pending" />
           <StatusPill status="Processing" />
           <StatusPill status="Completed" />
-          <StatusPill status="Cancelled" />
+          <StatusPill status="Rejected" />
         </div>
       </PanelCard>
 

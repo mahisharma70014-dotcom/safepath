@@ -2,15 +2,23 @@
 
 import { PanelCard } from "@/components/ui/panel-card";
 import { StatusPill } from "@/components/ui/status-pill";
-import { getRequests, SystemRequest, updateRequestStatus } from "@/lib/system-data";
-import { useEffect, useState } from "react";
+import { usePollingJson } from "@/hooks/use-polling-json";
+import type { RequestRecord, TransactionStatus } from "@/lib/data-model";
 
 export default function AdminApprovalsPage() {
-  const [requests, setRequests] = useState<SystemRequest[]>([]);
+  const { data, refresh } = usePollingJson<{ requests: RequestRecord[] }>("/api/requests?scope=all", 2500);
+  const requests = data?.requests ?? [];
 
-  useEffect(() => {
-    setRequests(getRequests());
-  }, []);
+  const updateStatus = async (id: string, status: TransactionStatus) => {
+    await fetch(`/api/requests/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status }),
+    });
+    await refresh();
+  };
 
   return (
     <div className="space-y-6">
@@ -28,20 +36,34 @@ export default function AdminApprovalsPage() {
                     <p className="mt-1 text-sm text-slate-400">
                       {request.userEmail} | {request.amountUsdt} USDT | {request.network} | {request.createdAt}
                     </p>
+                    {request.type === "deposit" || request.type === "withdraw" ? (
+                      <p className="mt-1 text-sm text-slate-400">
+                        Screenshot: {request.screenshotName || "Not provided"}
+                      </p>
+                    ) : null}
                   </div>
                   <StatusPill status={request.status} />
                 </div>
+                {(request.type === "deposit" || request.type === "withdraw") && request.screenshotDataUrl ? (
+                  <div className="mt-3 rounded-lg border border-cyan-800/30 bg-[#071830]/60 p-2">
+                    <img
+                      src={request.screenshotDataUrl}
+                      alt={`Deposit proof ${request.id}`}
+                      className="max-h-48 rounded-md object-contain"
+                    />
+                  </div>
+                ) : null}
                 {request.status === "Completed" || request.status === "Rejected" ? (
                   <p className="mt-3 text-sm text-slate-400">Finalized request. No further action available.</p>
                 ) : (
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button className="btn-ghost px-3 py-2 text-sm" onClick={() => setRequests(updateRequestStatus(request.id, "Processing"))}>
+                    <button className="btn-ghost px-3 py-2 text-sm" onClick={() => void updateStatus(request.id, "Processing") }>
                       Mark Processing
                     </button>
-                    <button className="btn-primary px-3 py-2 text-sm" onClick={() => setRequests(updateRequestStatus(request.id, "Completed"))}>
+                    <button className="btn-primary px-3 py-2 text-sm" onClick={() => void updateStatus(request.id, "Completed") }>
                       Approve / Complete
                     </button>
-                    <button className="btn-ghost px-3 py-2 text-sm" onClick={() => setRequests(updateRequestStatus(request.id, "Rejected"))}>
+                    <button className="btn-ghost px-3 py-2 text-sm" onClick={() => void updateStatus(request.id, "Rejected") }>
                       Reject
                     </button>
                   </div>

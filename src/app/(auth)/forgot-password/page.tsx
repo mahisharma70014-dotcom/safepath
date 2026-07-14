@@ -1,6 +1,8 @@
 "use client";
 
 import { Toast } from "@/components/ui/toast";
+import { auth, isFirebaseConfigured } from "@/lib/firebase";
+import { sendPasswordResetEmail } from "firebase/auth";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -35,7 +37,7 @@ export default function ForgotPasswordPage() {
 
       <form
         className="mt-6 space-y-4"
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
 
           const formData = new FormData(event.currentTarget);
@@ -47,8 +49,24 @@ export default function ForgotPasswordPage() {
             return;
           }
 
-          setError("");
-          setSent(true);
+          if (!isFirebaseConfigured || !auth) {
+            setError("Firebase authentication is not configured.");
+            setSent(false);
+            return;
+          }
+
+          try {
+            await sendPasswordResetEmail(auth, email);
+            setError("");
+            setSent(true);
+          } catch (resetError) {
+            setError(
+              resetError instanceof Error
+                ? resetError.message
+                : "Unable to send reset email.",
+            );
+            setSent(false);
+          }
         }}
       >
         <input

@@ -2,27 +2,28 @@
 
 import { PanelCard } from "@/components/ui/panel-card";
 import { Toast } from "@/components/ui/toast";
-import { getSession } from "@/lib/auth";
-import { getDepositSettings } from "@/lib/deposit-settings";
-import { getWalletState, submitDepositRequest } from "@/lib/system-data";
+import { usePollingJson } from "@/hooks/use-polling-json";
+import type { DepositSettings } from "@/lib/data-model";
 import { Copy } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function DepositUsdtPage() {
-  const [settings, setSettings] = useState(getDepositSettings());
+  const { data, refresh } = usePollingJson<{
+    settings: DepositSettings;
+  }>("/api/settings/deposit");
+  const { data: walletData } = usePollingJson<{
+    wallet: { availableUsdt: number };
+  }>("/api/wallet");
+  const settings =
+    data?.settings ??
+    ({ qrCodeDataUrl: "", walletAddress: "", network: "TRC20", walletLabel: "", enabled: false } as DepositSettings);
   const [amount, setAmount] = useState(0);
   const [screenshotName, setScreenshotName] = useState("");
+  const [screenshotDataUrl, setScreenshotDataUrl] = useState("");
   const [copied, setCopied] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
-  const [available, setAvailable] = useState(0);
-
-  useEffect(() => {
-    const session = getSession();
-    const email = session?.email ?? "seller@company.com";
-    setSettings(getDepositSettings());
-    setAvailable(getWalletState(email).availableUsdt);
-  }, []);
+  const available = walletData?.wallet.availableUsdt ?? 0;
 
   const copyAddress = async () => {
     await navigator.clipboard.writeText(settings.walletAddress);
@@ -92,10 +93,8 @@ export default function DepositUsdtPage() {
       <PanelCard title="Submit Deposit Request" subtitle="Upload payment proof for admin verification">
         <form
           className="grid gap-4 md:grid-cols-2"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
-            const session = getSession();
-            const email = session?.email ?? "seller@company.com";
 
             if (!settings.enabled) {
               setError("Deposit wallet is disabled by admin.");
@@ -112,18 +111,33 @@ export default function DepositUsdtPage() {
               return;
             }
 
-            submitDepositRequest({
-              userEmail: email,
-              amountUsdt: amount,
-              network: settings.network,
-              walletAddress: settings.walletAddress,
-              screenshotName,
+            const response = await fetch("/api/requests", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                type: "deposit",
+                amountUsdt: amount,
+                network: settings.network,
+                walletAddress: settings.walletAddress,
+                screenshotName,
+                screenshotDataUrl,
+              }),
             });
+
+            const payload = (await response.json()) as { message?: string };
+            if (!response.ok) {
+              setError(payload.message ?? "Unable to submit deposit request.");
+              return;
+            }
 
             setError("");
             setSubmitted(true);
             setAmount(0);
             setScreenshotName("");
+            setScreenshotDataUrl("");
+            void refresh();
           }}
         >
           <div>
@@ -143,7 +157,18 @@ export default function DepositUsdtPage() {
               className="input-base"
               type="file"
               accept="image/*"
-              onChange={(event) => setScreenshotName(event.target.files?.[0]?.name ?? "")}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                setScreenshotName(file?.name ?? "");
+                if (!file) {
+                  setScreenshotDataUrl("");
+                  return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = () => setScreenshotDataUrl(String(reader.result ?? ""));
+                reader.readAsDataURL(file);
+              }}
               required
             />
           </div>

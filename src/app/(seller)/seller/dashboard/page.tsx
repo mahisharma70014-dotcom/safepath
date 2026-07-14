@@ -1,9 +1,51 @@
-import { RevenueChart } from "@/components/charts/revenue-chart";
+"use client";
+
 import { PanelCard } from "@/components/ui/panel-card";
-import { sellerMetrics } from "@/lib/mock-data";
+import { usePollingJson } from "@/hooks/use-polling-json";
+import type { RequestRecord } from "@/lib/data-model";
 import Link from "next/link";
 
 export default function SellerDashboardPage() {
+  const { data: walletData } = usePollingJson<{
+    wallet: {
+      availableUsdt: number;
+      lockedUsdt: number;
+      lastSettlementInr: number;
+      lastDepositUsdt: number;
+    };
+  }>("/api/wallet", 3000);
+
+  const { data: requestsData } = usePollingJson<{ requests: RequestRecord[] }>("/api/requests?scope=mine", 3000);
+
+  const wallet =
+    walletData?.wallet ??
+    ({ availableUsdt: 0, lockedUsdt: 0, lastSettlementInr: 0, lastDepositUsdt: 0 } as const);
+  const requests = requestsData?.requests ?? [];
+
+  const today = new Date().toLocaleDateString("en-IN");
+  const soldTodayUsdt = requests
+    .filter((request) => request.type === "sell" && request.status === "Completed")
+    .filter((request) => {
+      const created = new Date(request.createdAt);
+      return !Number.isNaN(created.getTime()) && created.toLocaleDateString("en-IN") === today;
+    })
+    .reduce((sum, request) => sum + request.amountUsdt, 0);
+
+  const activeOrders = requests.filter(
+    (request) => request.status === "Pending" || request.status === "Processing",
+  ).length;
+
+  const pendingPayoutInr = requests
+    .filter(
+      (request) =>
+        request.type === "sell" &&
+        (request.status === "Pending" || request.status === "Processing") &&
+        typeof request.estimatedInr === "number",
+    )
+    .reduce((sum, request) => sum + (request.estimatedInr ?? 0), 0);
+
+  const recentRequests = requests.slice(0, 5);
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-semibold">Dashboard Overview</h2>
@@ -29,16 +71,61 @@ export default function SellerDashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {sellerMetrics.map((metric) => (
-          <PanelCard key={metric.label} title={metric.label}>
-            <p className="text-2xl font-semibold text-slate-100">{metric.value}</p>
-            <p className="mt-2 text-sm text-cyan-300">{metric.trend}</p>
-          </PanelCard>
-        ))}
+        <PanelCard title="Wallet Balance">
+          <p className="text-2xl font-semibold text-slate-100">
+            {wallet.availableUsdt.toLocaleString("en-IN", { maximumFractionDigits: 2 })} USDT
+          </p>
+          <p className="mt-2 text-sm text-cyan-300">Available live balance</p>
+        </PanelCard>
+        <PanelCard title="USDT Sold Today">
+          <p className="text-2xl font-semibold text-slate-100">
+            {soldTodayUsdt.toLocaleString("en-IN", { maximumFractionDigits: 2 })} USDT
+          </p>
+          <p className="mt-2 text-sm text-cyan-300">Completed sell orders today</p>
+        </PanelCard>
+        <PanelCard title="Active Orders">
+          <p className="text-2xl font-semibold text-slate-100">{activeOrders}</p>
+          <p className="mt-2 text-sm text-cyan-300">Pending + processing requests</p>
+        </PanelCard>
+        <PanelCard title="Pending Payout">
+          <p className="text-2xl font-semibold text-slate-100">
+            INR {pendingPayoutInr.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+          </p>
+          <p className="mt-2 text-sm text-cyan-300">Sell requests awaiting completion</p>
+        </PanelCard>
       </div>
 
-      <PanelCard title="Weekly Sell Volume" subtitle="Live business performance">
-        <RevenueChart />
+      <PanelCard title="Recent Requests" subtitle="Latest activity from your live account">
+        <div className="overflow-x-auto rounded-xl border border-cyan-800/30">
+          <table className="min-w-full text-sm">
+            <thead className="bg-[#071830] text-left text-slate-300">
+              <tr>
+                <th className="px-4 py-3 font-medium">Type</th>
+                <th className="px-4 py-3 font-medium">USDT</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentRequests.length ? (
+                recentRequests.map((request) => (
+                  <tr key={request.id} className="border-t border-cyan-900/20 text-slate-200">
+                    <td className="px-4 py-3 uppercase">{request.type}</td>
+                    <td className="px-4 py-3">{request.amountUsdt}</td>
+                    <td className="px-4 py-3">{request.status}</td>
+                    <td className="px-4 py-3">{request.createdAt}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr className="border-t border-cyan-900/20 text-slate-400">
+                  <td className="px-4 py-3" colSpan={4}>
+                    No requests yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </PanelCard>
     </div>
   );

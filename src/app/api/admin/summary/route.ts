@@ -1,0 +1,68 @@
+import { adminDb } from "@/lib/firebase-admin";
+import { FIRESTORE_PATHS } from "@/lib/firestore-paths";
+import { requireSession } from "@/lib/request-session";
+import { NextRequest, NextResponse } from "next/server";
+
+const numberValue = (value: unknown) => (typeof value === "number" ? value : 0);
+const timeValue = (value: unknown) => {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object" && "toDate" in value && typeof (value as { toDate: () => Date }).toDate === "function") {
+    return (value as { toDate: () => Date }).toDate().toLocaleString("en-IN", { hour12: false });
+  }
+  return "";
+};
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await requireSession(request);
+    if (session.role !== "admin") {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
+    const [usersSnapshot, requestsSnapshot] = await Promise.all([
+      adminDb.collection(FIRESTORE_PATHS.users).get(),
+      adminDb.collection(FIRESTORE_PATHS.requests).get(),
+    ]);
+
+    const requests = requestsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+    const pendingKyc = usersSnapshot.docs.filter((doc) => {
+      const status = String(doc.data().kycStatus ?? "").toLowerCase();
+      return status === "pending" || status === "submitted";
+    }).length;
+
+    const completedSells = requests.filter((item) => item.type === "sell" && item.status === "Completed");
+    const revenue30d = completedSells.reduce((sum, item) => {
+      const estimated = numberValue(item.estimatedInr);
+      return sum + estimated;
+    }, 0);
+
+    const recentRequests = requests
+      .sort((a, b) => {
+        const aTime = new Date(String(a.createdAt ?? "")).getTime() || 0;
+        const bTime = new Date(String(b.createdAt ?? "")).getTime() || 0;
+        return bTime - aTime;
+      })
+      .slice(0, 8)
+      .map((item) => ({
+        id: item.id,
+        type: String(item.type ?? ""),
+        status: String(item.status ?? ""),
+        amountUsdt: numberValue(item.amountUsdt),
+        userEmail: String(item.userEmail ?? ""),
+        createdAt: timeValue(item.createdAt),
+      }));
+
+    return NextResponse.json({
+      metrics: {
+        totalUsers: usersSnapshot.size,
+        verifiedUsers: usersSnapshot.docs.filter((doc) => doc.data().role === "seller" || doc.data().role === "admin").length,
+        pendingKyc,
+        revenue30d,
+      },
+      recentRequests,
+    });
+  } catch {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+}

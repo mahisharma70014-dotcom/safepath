@@ -2,30 +2,28 @@
 
 import { PanelCard } from "@/components/ui/panel-card";
 import { Toast } from "@/components/ui/toast";
-import {
-  DepositNetwork,
-  defaultDepositSettings,
-  getDepositSettings,
-  saveDepositSettings,
-} from "@/lib/deposit-settings";
+import { usePollingJson } from "@/hooks/use-polling-json";
+import { defaultDepositSettings, type DepositSettings, type NetworkType } from "@/lib/data-model";
 import { ChangeEvent, useEffect, useState } from "react";
 
 export default function AdminDepositSettingsPage() {
   const [walletAddress, setWalletAddress] = useState(defaultDepositSettings.walletAddress);
-  const [network, setNetwork] = useState<DepositNetwork>(defaultDepositSettings.network);
+  const [network, setNetwork] = useState<NetworkType>(defaultDepositSettings.network);
   const [walletLabel, setWalletLabel] = useState(defaultDepositSettings.walletLabel);
   const [enabled, setEnabled] = useState(defaultDepositSettings.enabled);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState(defaultDepositSettings.qrCodeDataUrl);
   const [saved, setSaved] = useState(false);
+  const { data, refresh } = usePollingJson<{ settings: DepositSettings }>("/api/settings/deposit");
 
   useEffect(() => {
-    const settings = getDepositSettings();
+    const settings = data?.settings;
+    if (!settings) return;
     setWalletAddress(settings.walletAddress);
     setNetwork(settings.network);
     setWalletLabel(settings.walletLabel);
     setEnabled(settings.enabled);
     setQrCodeDataUrl(settings.qrCodeDataUrl);
-  }, []);
+  }, [data]);
 
   const onQrUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -45,18 +43,29 @@ export default function AdminDepositSettingsPage() {
       <PanelCard title="Admin Configurable Deposit Wallet" subtitle="Manage QR, address, network, and wallet status">
         <form
           className="grid gap-4 md:grid-cols-2"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
 
-            saveDepositSettings({
+            const response = await fetch("/api/settings/deposit", {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
               walletAddress,
               network,
               walletLabel,
               enabled,
               qrCodeDataUrl,
+              }),
             });
 
+            if (!response.ok) {
+              return;
+            }
+
             setSaved(true);
+            void refresh();
           }}
         >
           <div className="md:col-span-2">
@@ -79,7 +88,7 @@ export default function AdminDepositSettingsPage() {
             <select
               className="input-base"
               value={network}
-              onChange={(event) => setNetwork(event.target.value as DepositNetwork)}
+              onChange={(event) => setNetwork(event.target.value as NetworkType)}
             >
               <option value="TRC20">TRC20</option>
               <option value="BEP20">BEP20</option>

@@ -1,7 +1,9 @@
 "use client";
 
-import { getUsers, isCompanyEmail, saveUser } from "@/lib/auth";
+import { isCompanyEmail } from "@/lib/auth";
 import { Toast } from "@/components/ui/toast";
+import { auth, isFirebaseConfigured } from "@/lib/firebase";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -21,7 +23,7 @@ export default function RegisterPage() {
 
       <form
         className="space-y-4"
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
 
           const formData = new FormData(event.currentTarget);
@@ -43,24 +45,46 @@ export default function RegisterPage() {
             return;
           }
 
-          const exists = getUsers().some((user) => user.email.toLowerCase() === email);
-          if (exists) {
-            setError("This email is already registered.");
+          if (!isFirebaseConfigured || !auth) {
+            setError("Firebase authentication is not configured.");
             setToast(false);
             return;
           }
 
-          saveUser({
-            fullName,
-            email,
-            phone,
-            password,
-            role: "seller",
-          });
+          try {
+            const credential = await createUserWithEmailAndPassword(auth, email, password);
+            await updateProfile(credential.user, { displayName: fullName });
+            const idToken = await credential.user.getIdToken();
 
-          setError("");
-          setToast(true);
-          setTimeout(() => router.push("/login"), 600);
+            const sessionResponse = await fetch("/api/auth/session", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                idToken,
+                fullName,
+                phone,
+                roleHint: "seller",
+              }),
+            });
+
+            const payload = (await sessionResponse.json()) as { message?: string };
+            if (!sessionResponse.ok) {
+              throw new Error(payload.message ?? "Unable to create account session.");
+            }
+
+            setError("");
+            setToast(true);
+            setTimeout(() => router.push("/seller/dashboard"), 600);
+          } catch (registerError) {
+            setError(
+              registerError instanceof Error
+                ? registerError.message
+                : "Unable to register account.",
+            );
+            setToast(false);
+          }
         }}
       >
         <input name="fullName" className="input-base" placeholder="Full Name" required />
@@ -94,7 +118,7 @@ export default function RegisterPage() {
         </Link>
       </p>
 
-      {toast ? <Toast type="success" message="Registration successful. Redirecting to login..." /> : null}
+      {toast ? <Toast type="success" message="Registration successful. Redirecting..." /> : null}
     </div>
   );
 }

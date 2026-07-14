@@ -2,18 +2,12 @@
 
 import { PanelCard } from "@/components/ui/panel-card";
 import { StatusPill } from "@/components/ui/status-pill";
-import { getSession } from "@/lib/auth";
-import { getUserRequests, SystemRequest } from "@/lib/system-data";
-import { useEffect, useState } from "react";
+import { usePollingJson } from "@/hooks/use-polling-json";
+import type { RequestRecord } from "@/lib/data-model";
 
 export default function OrderHistoryPage() {
-  const [orders, setOrders] = useState<SystemRequest[]>([]);
-
-  useEffect(() => {
-    const session = getSession();
-    const email = session?.email ?? "seller@company.com";
-    setOrders(getUserRequests(email));
-  }, []);
+  const { data } = usePollingJson<{ requests: RequestRecord[] }>("/api/requests?scope=mine", 2500);
+  const orders = data?.requests ?? [];
 
   return (
     <div className="space-y-6">

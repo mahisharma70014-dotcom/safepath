@@ -1,18 +1,20 @@
 "use client";
 
 import { PanelCard } from "@/components/ui/panel-card";
-import { getSession } from "@/lib/auth";
-import { getWalletState } from "@/lib/system-data";
-import { useEffect, useState } from "react";
+import { usePollingJson } from "@/hooks/use-polling-json";
 
 export default function WalletPage() {
-  const [wallet, setWallet] = useState(getWalletState("seller@company.com"));
-
-  useEffect(() => {
-    const session = getSession();
-    const email = session?.email ?? "seller@company.com";
-    setWallet(getWalletState(email));
-  }, []);
+  const { data } = usePollingJson<{
+    wallet: {
+      availableUsdt: number;
+      lockedUsdt: number;
+      lastSettlementInr: number;
+      lastDepositUsdt: number;
+    };
+  }>("/api/wallet");
+  const wallet =
+    data?.wallet ??
+    ({ availableUsdt: 0, lockedUsdt: 0, lastSettlementInr: 0, lastDepositUsdt: 0 } as const);
 
   return (
     <div className="space-y-6">

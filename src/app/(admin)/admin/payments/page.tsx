@@ -2,16 +2,20 @@
 
 import { PanelCard } from "@/components/ui/panel-card";
 import { Toast } from "@/components/ui/toast";
-import { defaultSellSettings, getSellSettings, saveSellSettings } from "@/lib/system-data";
+import { usePollingJson } from "@/hooks/use-polling-json";
+import { defaultSellSettings, type SellSettings } from "@/lib/data-model";
 import { useEffect, useState } from "react";
 
 export default function AdminPaymentsPage() {
   const [settings, setSettings] = useState(defaultSellSettings);
   const [saved, setSaved] = useState(false);
+  const { data, refresh } = usePollingJson<{ settings: SellSettings }>("/api/settings/sell");
 
   useEffect(() => {
-    setSettings(getSellSettings());
-  }, []);
+    if (data?.settings) {
+      setSettings(data.settings);
+    }
+  }, [data]);
 
   return (
     <div className="space-y-6">
@@ -19,10 +23,21 @@ export default function AdminPaymentsPage() {
       <PanelCard title="Sell Pricing & Payout Details" subtitle="Admin-defined pricing is used across the full system">
         <form
           className="grid gap-4 md:grid-cols-2"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
-            saveSellSettings(settings);
+            const response = await fetch("/api/settings/sell", {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(settings),
+            });
+
+            if (!response.ok) {
+              return;
+            }
             setSaved(true);
+            void refresh();
           }}
         >
           <input className="input-base" type="number" step="0.01" value={settings.upiRate} onChange={(event) => setSettings({ ...settings, upiRate: Number(event.target.value) })} placeholder="UPI Rate" required />

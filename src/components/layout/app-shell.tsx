@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { clearSession } from "@/lib/auth";
+import { auth } from "@/lib/firebase";
 import {
   Bell,
   CircleDollarSign,
@@ -20,6 +20,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
+import { signOut } from "firebase/auth";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
@@ -122,8 +123,11 @@ export function AppShell({ title, nav, children }: AppShellProps) {
               </button>
               <button
                 className="btn-ghost flex items-center gap-2 px-3 py-2 text-sm"
-                onClick={() => {
-                  clearSession();
+                onClick={async () => {
+                  await fetch("/api/auth/logout", { method: "POST" });
+                  if (auth) {
+                    await signOut(auth);
+                  }
                   router.push("/login");
                 }}
               >
