@@ -7,7 +7,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 const serialize = (record: FirebaseFirestore.DocumentData, id: string): RequestRecord => ({
   id,
-  ...record,
+  userId: String(record.userId ?? ""),
+  userEmail: String(record.userEmail ?? ""),
+  type: (record.type ?? "deposit") as RequestRecord["type"],
+  amountUsdt: typeof record.amountUsdt === "number" ? record.amountUsdt : 0,
+  network: (record.network ?? "TRC20") as RequestRecord["network"],
+  status: (record.status ?? "Pending") as RequestRecord["status"],
   createdAt:
     typeof record.createdAt === "string"
       ? record.createdAt
@@ -16,6 +21,14 @@ const serialize = (record: FirebaseFirestore.DocumentData, id: string): RequestR
     typeof record.updatedAt === "string"
       ? record.updatedAt
       : record.updatedAt?.toDate?.().toLocaleString("en-IN", { hour12: false }) ?? undefined,
+  walletAddress: record.walletAddress ? String(record.walletAddress) : undefined,
+  screenshotName: record.screenshotName ? String(record.screenshotName) : undefined,
+  screenshotDataUrl: record.screenshotDataUrl ? String(record.screenshotDataUrl) : undefined,
+  paymentMethod: record.paymentMethod as RequestRecord["paymentMethod"],
+  rate: typeof record.rate === "number" ? record.rate : undefined,
+  estimatedInr: typeof record.estimatedInr === "number" ? record.estimatedInr : undefined,
+  payoutDetails: record.payoutDetails ? String(record.payoutDetails) : undefined,
+  destinationWallet: record.destinationWallet ? String(record.destinationWallet) : undefined,
 });
 
 export async function GET(request: NextRequest) {
@@ -52,7 +65,13 @@ export async function POST(request: NextRequest) {
     await adminDb.runTransaction(async (transaction) => {
       const walletSnapshot = await transaction.get(walletRef);
       const wallet = walletSnapshot.exists
-        ? walletSnapshot.data()
+        ? (walletSnapshot.data() ?? {
+            userId: session.uid,
+            availableUsdt: 0,
+            lockedUsdt: 0,
+            lastSettlementInr: 0,
+            lastDepositUsdt: 0,
+          })
         : { userId: session.uid, availableUsdt: 0, lockedUsdt: 0, lastSettlementInr: 0, lastDepositUsdt: 0 };
 
       if (body.type === "sell" || body.type === "withdraw") {

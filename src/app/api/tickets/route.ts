@@ -7,7 +7,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 const serialize = (record: FirebaseFirestore.DocumentData, id: string): SupportTicket => ({
   id,
-  ...record,
+  userId: String(record.userId ?? ""),
+  userEmail: String(record.userEmail ?? ""),
+  subject: String(record.subject ?? ""),
+  category: (record.category ?? "Order issue") as SupportTicket["category"],
+  message: String(record.message ?? ""),
+  status: (record.status ?? "Open") as SupportTicket["status"],
   createdAt:
     typeof record.createdAt === "string"
       ? record.createdAt

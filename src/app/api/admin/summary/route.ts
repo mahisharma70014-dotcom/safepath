@@ -24,7 +24,10 @@ export async function GET(request: NextRequest) {
       adminDb.collection(FIRESTORE_PATHS.requests).get(),
     ]);
 
-    const requests = requestsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const requests: Array<FirebaseFirestore.DocumentData & { id: string }> = requestsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
 
     const pendingKyc = usersSnapshot.docs.filter((doc) => {
       const status = String(doc.data().kycStatus ?? "").toLowerCase();
