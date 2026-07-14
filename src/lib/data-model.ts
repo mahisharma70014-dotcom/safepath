@@ -2,12 +2,16 @@ export type NetworkType = "TRC20" | "BEP20" | "ERC20";
 export type TransactionStatus = "Pending" | "Processing" | "Completed" | "Rejected";
 export type PaymentMethod = "UPI" | "CDM" | "Mix";
 
-export type DepositSettings = {
+export type DepositWalletConfig = {
   qrCodeDataUrl: string;
   walletAddress: string;
-  network: NetworkType;
   walletLabel: string;
   enabled: boolean;
+};
+
+export type DepositSettings = {
+  activeNetwork: NetworkType;
+  wallets: Record<NetworkType, DepositWalletConfig>;
   updatedAt?: string;
 };
 
@@ -81,11 +85,27 @@ export type SupportTicket = {
 };
 
 export const defaultDepositSettings: DepositSettings = {
-  qrCodeDataUrl: "/image/bep20.png",
-  walletAddress: "0x997700b3bFf8f9F0e963609AD290962116e9FA77",
-  network: "BEP20",
-  walletLabel: "Primary Treasury Wallet (BEP20)",
-  enabled: true,
+  activeNetwork: "BEP20",
+  wallets: {
+    TRC20: {
+      qrCodeDataUrl: "",
+      walletAddress: "",
+      walletLabel: "TRC20 Wallet",
+      enabled: false,
+    },
+    BEP20: {
+      qrCodeDataUrl: "/image/bep20.png",
+      walletAddress: "0x997700b3bFf8f9F0e963609AD290962116e9FA77",
+      walletLabel: "Primary Treasury Wallet (BEP20)",
+      enabled: true,
+    },
+    ERC20: {
+      qrCodeDataUrl: "",
+      walletAddress: "",
+      walletLabel: "ERC20 Wallet",
+      enabled: false,
+    },
+  },
 };
 
 export const defaultSellSettings: SellSettings = {

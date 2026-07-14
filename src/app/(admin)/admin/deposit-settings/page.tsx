@@ -6,25 +6,39 @@ import { usePollingJson } from "@/hooks/use-polling-json";
 import { defaultDepositSettings, type DepositSettings, type NetworkType } from "@/lib/data-model";
 import { ChangeEvent, useEffect, useState } from "react";
 
+const NETWORK_OPTIONS: NetworkType[] = ["TRC20", "BEP20", "ERC20"];
+
 export default function AdminDepositSettingsPage() {
-  const [walletAddress, setWalletAddress] = useState(defaultDepositSettings.walletAddress);
-  const [network, setNetwork] = useState<NetworkType>(defaultDepositSettings.network);
-  const [walletLabel, setWalletLabel] = useState(defaultDepositSettings.walletLabel);
-  const [enabled, setEnabled] = useState(defaultDepositSettings.enabled);
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState(defaultDepositSettings.qrCodeDataUrl);
+  const [settings, setSettings] = useState<DepositSettings>(defaultDepositSettings);
+  const [selectedNetwork, setSelectedNetwork] = useState<NetworkType>(defaultDepositSettings.activeNetwork);
+  const [initialized, setInitialized] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const { data, refresh } = usePollingJson<{ settings: DepositSettings }>("/api/settings/deposit");
 
   useEffect(() => {
-    const settings = data?.settings;
-    if (!settings) return;
-    setWalletAddress(settings.walletAddress);
-    setNetwork(settings.network);
-    setWalletLabel(settings.walletLabel);
-    setEnabled(settings.enabled);
-    setQrCodeDataUrl(settings.qrCodeDataUrl);
-  }, [data]);
+    const loaded = data?.settings;
+    if (!loaded || initialized) return;
+    setSettings(loaded);
+    setSelectedNetwork(loaded.activeNetwork);
+    setInitialized(true);
+  }, [data, initialized]);
+
+  const wallet = settings.wallets[selectedNetwork];
+
+  const updateWallet = (partial: Partial<typeof wallet>) => {
+    setSettings((prev) => ({
+      ...prev,
+      activeNetwork: selectedNetwork,
+      wallets: {
+        ...prev.wallets,
+        [selectedNetwork]: {
+          ...prev.wallets[selectedNetwork],
+          ...partial,
+        },
+      },
+    }));
+  };
 
   const onQrUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -33,7 +47,7 @@ export default function AdminDepositSettingsPage() {
     const reader = new FileReader();
     reader.onload = () => {
       const result = String(reader.result ?? "");
-      setQrCodeDataUrl(result);
+      updateWallet({ qrCodeDataUrl: result });
     };
     reader.readAsDataURL(file);
   };
@@ -50,11 +64,11 @@ export default function AdminDepositSettingsPage() {
             setSaved(false);
             setError("");
 
-            if (!walletAddress.trim()) {
+            if (!wallet.walletAddress.trim()) {
               setError("Enter a valid deposit wallet address.");
               return;
             }
-            if (!qrCodeDataUrl) {
+            if (!wallet.qrCodeDataUrl) {
               setError("Upload a QR code image for the wallet.");
               return;
             }
@@ -65,13 +79,7 @@ export default function AdminDepositSettingsPage() {
                 "Content-Type": "application/json",
               },
               credentials: "include",
-              body: JSON.stringify({
-                walletAddress,
-                network,
-                walletLabel,
-                enabled,
-                qrCodeDataUrl,
-              }),
+              body: JSON.stringify(settings),
             });
 
             const payload = (await response.json()) as { message?: string };
@@ -85,6 +93,19 @@ export default function AdminDepositSettingsPage() {
           }}
         >
           <div className="md:col-span-2">
+            <label className="mb-1 block text-sm text-slate-300">Network</label>
+            <select
+              className="input-base"
+              value={selectedNetwork}
+              onChange={(event) => setSelectedNetwork(event.target.value as NetworkType)}
+            >
+              {NETWORK_OPTIONS.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="md:col-span-2">
             <label className="mb-1 block text-sm text-slate-300">Upload Deposit QR Code</label>
             <input className="input-base" type="file" accept="image/*" onChange={onQrUpload} />
           </div>
@@ -93,44 +114,33 @@ export default function AdminDepositSettingsPage() {
             <label className="mb-1 block text-sm text-slate-300">USDT Wallet Address</label>
             <input
               className="input-base"
-              value={walletAddress}
-              onChange={(event) => setWalletAddress(event.target.value)}
+              value={wallet.walletAddress}
+              onChange={(event) => updateWallet({ walletAddress: event.target.value })}
               required
             />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm text-slate-300">Network</label>
-            <select
-              className="input-base"
-              value={network}
-              onChange={(event) => setNetwork(event.target.value as NetworkType)}
-            >
-              <option value="TRC20">TRC20</option>
-              <option value="BEP20">BEP20</option>
-              <option value="ERC20">ERC20</option>
-            </select>
           </div>
 
           <div>
             <label className="mb-1 block text-sm text-slate-300">Wallet Label (Optional)</label>
             <input
               className="input-base"
-              value={walletLabel}
-              onChange={(event) => setWalletLabel(event.target.value)}
+              value={wallet.walletLabel}
+              onChange={(event) => updateWallet({ walletLabel: event.target.value })}
               placeholder="Primary Wallet"
             />
           </div>
 
-          <label className="md:col-span-2 flex items-center gap-2 text-sm text-slate-300">
-            <input
-              type="checkbox"
-              checked={enabled}
-              onChange={(event) => setEnabled(event.target.checked)}
-              className="h-4 w-4 rounded"
-            />
-            Enable Deposit Wallet
-          </label>
+          <div className="flex items-center gap-3 text-sm text-slate-300 md:col-span-2">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={wallet.enabled}
+                onChange={(event) => updateWallet({ enabled: event.target.checked })}
+                className="h-4 w-4 rounded"
+              />
+              Enable Deposit Wallet
+            </label>
+          </div>
 
           <button className="btn-primary md:col-span-2 py-3 font-semibold">Save Deposit Settings</button>
         </form>
@@ -140,19 +150,19 @@ export default function AdminDepositSettingsPage() {
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-xl border border-cyan-800/40 bg-cyan-500/5 p-4">
             <p className="text-sm text-slate-400">QR Code</p>
-            {qrCodeDataUrl ? (
-              <img src={qrCodeDataUrl} alt="QR Preview" className="mt-3 h-44 w-44 rounded-lg bg-white p-2" />
+            {wallet.qrCodeDataUrl ? (
+              <img src={wallet.qrCodeDataUrl} alt="QR Preview" className="mt-3 h-44 w-44 rounded-lg bg-white p-2" />
             ) : (
               <div className="mt-3 flex h-44 w-44 items-center justify-center rounded-lg border border-dashed border-cyan-700/40 text-xs text-slate-400">
-                No QR uploaded
+                No QR uploaded for {selectedNetwork}
               </div>
             )}
           </div>
           <div className="rounded-xl border border-cyan-800/40 bg-cyan-500/5 p-4 text-sm text-slate-300">
-            <p>Network: <span className="text-cyan-100">{network}</span></p>
-            <p className="mt-2 break-all">Address: {walletAddress}</p>
-            <p className="mt-2">Label: {walletLabel || "-"}</p>
-            <p className="mt-2">Status: {enabled ? "Enabled" : "Disabled"}</p>
+            <p>Network: <span className="text-cyan-100">{selectedNetwork}</span></p>
+            <p className="mt-2 break-all">Address: {wallet.walletAddress || "Not set"}</p>
+            <p className="mt-2">Label: {wallet.walletLabel || "-"}</p>
+            <p className="mt-2">Status: {wallet.enabled ? "Enabled" : "Disabled"}</p>
           </div>
         </div>
       </PanelCard>

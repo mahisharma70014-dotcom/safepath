@@ -3,9 +3,20 @@
 import { PanelCard } from "@/components/ui/panel-card";
 import { Toast } from "@/components/ui/toast";
 import { usePollingJson } from "@/hooks/use-polling-json";
-import type { DepositSettings } from "@/lib/data-model";
+import type { DepositSettings, NetworkType } from "@/lib/data-model";
 import { Copy } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const NETWORK_OPTIONS: NetworkType[] = ["TRC20", "BEP20", "ERC20"];
+
+const defaultDepositSettings: DepositSettings = {
+  activeNetwork: "TRC20",
+  wallets: {
+    TRC20: { qrCodeDataUrl: "", walletAddress: "", walletLabel: "TRC20 Wallet", enabled: false },
+    BEP20: { qrCodeDataUrl: "", walletAddress: "", walletLabel: "BEP20 Wallet", enabled: false },
+    ERC20: { qrCodeDataUrl: "", walletAddress: "", walletLabel: "ERC20 Wallet", enabled: false },
+  },
+};
 
 export default function DepositUsdtPage() {
   const { data, refresh } = usePollingJson<{
@@ -14,9 +25,8 @@ export default function DepositUsdtPage() {
   const { data: walletData } = usePollingJson<{
     wallet: { availableUsdt: number };
   }>("/api/wallet");
-  const settings =
-    data?.settings ??
-    ({ qrCodeDataUrl: "", walletAddress: "", network: "TRC20", walletLabel: "", enabled: false } as DepositSettings);
+  const settings = data?.settings ?? defaultDepositSettings;
+  const [selectedNetwork, setSelectedNetwork] = useState<NetworkType>(settings.activeNetwork);
   const [amount, setAmount] = useState(0);
   const [screenshotName, setScreenshotName] = useState("");
   const [screenshotDataUrl, setScreenshotDataUrl] = useState("");
@@ -25,8 +35,16 @@ export default function DepositUsdtPage() {
   const [error, setError] = useState("");
   const available = walletData?.wallet.availableUsdt ?? 0;
 
+  useEffect(() => {
+    if (data?.settings) {
+      setSelectedNetwork(data.settings.activeNetwork);
+    }
+  }, [data]);
+
+  const currentWallet = settings.wallets[selectedNetwork] ?? settings.wallets[settings.activeNetwork];
+
   const copyAddress = async () => {
-    await navigator.clipboard.writeText(settings.walletAddress);
+    await navigator.clipboard.writeText(currentWallet.walletAddress);
     setCopied(true);
   };
 
@@ -37,57 +55,75 @@ export default function DepositUsdtPage() {
         title="Deposit Wallet"
         subtitle="Use the details below to transfer USDT safely"
       >
-        {!settings.enabled ? (
-          <p className="rounded-xl border border-amber-400/30 bg-amber-300/10 p-4 text-amber-100">
-            Deposit wallet is temporarily disabled by admin.
-          </p>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="rounded-xl border border-cyan-800/40 bg-cyan-500/5 p-4">
-              <p className="mb-3 text-sm text-slate-400">QR Code</p>
-              {settings.qrCodeDataUrl ? (
-                <img
-                  src={settings.qrCodeDataUrl}
-                  alt="Deposit QR"
-                  className="mx-auto h-52 w-52 rounded-lg border border-cyan-700/40 bg-white p-2"
-                />
-              ) : (
-                <div className="mx-auto flex h-52 w-52 items-center justify-center rounded-lg border border-dashed border-cyan-700/40 text-sm text-slate-400">
-                  QR not uploaded yet
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              <div className="rounded-xl border border-cyan-800/40 bg-cyan-500/5 p-4">
-                <p className="text-xs uppercase tracking-wider text-slate-400">Network</p>
-                <p className="mt-1 text-lg font-semibold text-cyan-100">{settings.network}</p>
-              </div>
-
-              <div className="rounded-xl border border-cyan-800/40 bg-cyan-500/5 p-4">
-                <p className="text-xs uppercase tracking-wider text-slate-400">Wallet Label</p>
-                <p className="mt-1 text-slate-100">{settings.walletLabel || "-"}</p>
-              </div>
-
-              <div className="rounded-xl border border-cyan-800/40 bg-cyan-500/5 p-4">
-                <p className="text-xs uppercase tracking-wider text-slate-400">Wallet Address</p>
-                <p className="mt-1 break-all font-mono text-sm text-slate-100">{settings.walletAddress}</p>
-                <button
-                  className="btn-primary mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium"
-                  onClick={copyAddress}
-                >
-                  <Copy size={14} />
-                  Copy Address
-                </button>
-              </div>
-
-              <div className="rounded-xl border border-cyan-800/40 bg-cyan-500/5 p-4">
-                <p className="text-xs uppercase tracking-wider text-slate-400">Available Balance</p>
-                <p className="mt-1 text-lg font-semibold text-cyan-100">{available} USDT</p>
-              </div>
-            </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="md:col-span-3">
+            <label className="mb-1 block text-sm text-slate-300">Choose Network</label>
+            <select
+              className="input-base"
+              value={selectedNetwork}
+              onChange={(event) => setSelectedNetwork(event.target.value as NetworkType)}
+            >
+              {NETWORK_OPTIONS.map((network) => (
+                <option key={network} value={network}>
+                  {network}
+                </option>
+              ))}
+            </select>
           </div>
-        )}
+
+          {!currentWallet.enabled ? (
+            <div className="md:col-span-3 rounded-xl border border-amber-400/30 bg-amber-300/10 p-4 text-amber-100">
+              Deposit wallet for {selectedNetwork} is disabled by admin.
+            </div>
+          ) : (
+            <>
+              <div className="rounded-xl border border-cyan-800/40 bg-cyan-500/5 p-4">
+                <p className="mb-3 text-sm text-slate-400">QR Code</p>
+                {currentWallet.qrCodeDataUrl ? (
+                  <img
+                    src={currentWallet.qrCodeDataUrl}
+                    alt="Deposit QR"
+                    className="mx-auto h-52 w-52 rounded-lg border border-cyan-700/40 bg-white p-2"
+                  />
+                ) : (
+                  <div className="mx-auto flex h-52 w-52 items-center justify-center rounded-lg border border-dashed border-cyan-700/40 text-sm text-slate-400">
+                    QR not uploaded yet for {selectedNetwork}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4 md:col-span-2">
+                <div className="rounded-xl border border-cyan-800/40 bg-cyan-500/5 p-4">
+                  <p className="text-xs uppercase tracking-wider text-slate-400">Network</p>
+                  <p className="mt-1 text-lg font-semibold text-cyan-100">{selectedNetwork}</p>
+                </div>
+
+                <div className="rounded-xl border border-cyan-800/40 bg-cyan-500/5 p-4">
+                  <p className="text-xs uppercase tracking-wider text-slate-400">Wallet Label</p>
+                  <p className="mt-1 text-slate-100">{currentWallet.walletLabel || "-"}</p>
+                </div>
+
+                <div className="rounded-xl border border-cyan-800/40 bg-cyan-500/5 p-4">
+                  <p className="text-xs uppercase tracking-wider text-slate-400">Wallet Address</p>
+                  <p className="mt-1 break-all font-mono text-sm text-slate-100">{currentWallet.walletAddress || "Not set"}</p>
+                  <button
+                    className="btn-primary mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium"
+                    onClick={copyAddress}
+                    type="button"
+                  >
+                    <Copy size={14} />
+                    Copy Address
+                  </button>
+                </div>
+
+                <div className="rounded-xl border border-cyan-800/40 bg-cyan-500/5 p-4">
+                  <p className="text-xs uppercase tracking-wider text-slate-400">Available Balance</p>
+                  <p className="mt-1 text-lg font-semibold text-cyan-100">{available} USDT</p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </PanelCard>
 
       <PanelCard title="Submit Deposit Request" subtitle="Upload payment proof for admin verification">
@@ -96,7 +132,7 @@ export default function DepositUsdtPage() {
           onSubmit={async (event) => {
             event.preventDefault();
 
-            if (!settings.enabled) {
+            if (!currentWallet.enabled) {
               setError("Deposit wallet is disabled by admin.");
               return;
             }
@@ -119,8 +155,8 @@ export default function DepositUsdtPage() {
               body: JSON.stringify({
                 type: "deposit",
                 amountUsdt: amount,
-                network: settings.network,
-                walletAddress: settings.walletAddress,
+                network: selectedNetwork,
+                walletAddress: currentWallet.walletAddress,
                 screenshotName,
                 screenshotDataUrl,
               }),
