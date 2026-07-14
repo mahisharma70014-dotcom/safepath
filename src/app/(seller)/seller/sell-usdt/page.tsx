@@ -96,7 +96,9 @@ export default function SellUsdtPage() {
             <select
               className="input-base"
               value={network}
-              onChange={(event) => setNetwork(event.target.value as keyof typeof rates)}
+              onChange={(event) =>
+                setNetwork(event.target.value as "TRC20" | "BEP20" | "ERC20")
+              }
             >
               <option value="TRC20">TRC20</option>
               <option value="BEP20">BEP20</option>
