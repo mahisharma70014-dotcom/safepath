@@ -6,19 +6,21 @@ const projectId = process.env.FIREBASE_PROJECT_ID ?? process.env.NEXT_PUBLIC_FIR
 const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
 const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
 
-const adminApp =
-  getApps()[0] ??
-  initializeApp({
-    credential:
-      projectId && clientEmail && privateKey
-        ? cert({
-            projectId,
-            clientEmail,
-            privateKey,
-          })
-        : undefined,
-    projectId,
-  });
+const firebaseAdminOptions =
+  projectId && clientEmail && privateKey
+    ? {
+        credential: cert({
+          projectId,
+          clientEmail,
+          privateKey,
+        }),
+        projectId,
+      }
+    : projectId
+    ? { projectId }
+    : undefined;
+
+const adminApp = getApps()[0] ?? initializeApp(firebaseAdminOptions);
 
 export const adminAuth = getAuth(adminApp);
 export const adminDb = getFirestore(adminApp);
