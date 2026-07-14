@@ -124,10 +124,27 @@ export function AppShell({ title, nav, children }: AppShellProps) {
               <button
                 className="btn-ghost flex items-center gap-2 px-3 py-2 text-sm"
                 onClick={async () => {
-                  await fetch("/api/auth/logout", { method: "POST" });
-                  if (auth) {
-                    await signOut(auth);
+                  try {
+                    const response = await fetch("/api/auth/logout", {
+                      method: "POST",
+                      credentials: "include",
+                    });
+
+                    if (!response.ok) {
+                      console.error("Logout API failed", response.statusText);
+                    }
+                  } catch (error) {
+                    console.error("Logout request failed", error);
                   }
+
+                  if (auth) {
+                    try {
+                      await signOut(auth);
+                    } catch (error) {
+                      console.error("Firebase signOut failed", error);
+                    }
+                  }
+
                   router.push("/login");
                 }}
               >

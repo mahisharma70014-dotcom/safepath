@@ -11,6 +11,7 @@ const NETWORK_OPTIONS: NetworkType[] = ["TRC20", "BEP20", "ERC20"];
 export default function AdminDepositSettingsPage() {
   const [settings, setSettings] = useState<DepositSettings>(defaultDepositSettings);
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkType>(defaultDepositSettings.activeNetwork);
+  const [userSelectedNetwork, setUserSelectedNetwork] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -19,10 +20,17 @@ export default function AdminDepositSettingsPage() {
   useEffect(() => {
     const loaded = data?.settings;
     if (!loaded || initialized) return;
+
     setSettings(loaded);
-    setSelectedNetwork(loaded.activeNetwork);
+    if (!userSelectedNetwork) {
+      setSelectedNetwork(loaded.activeNetwork);
+    }
     setInitialized(true);
-  }, [data, initialized]);
+  }, [data, initialized, userSelectedNetwork]);
+
+  useEffect(() => {
+    setSettings((prev) => ({ ...prev, activeNetwork: selectedNetwork }));
+  }, [selectedNetwork]);
 
   const wallet = settings.wallets[selectedNetwork];
 
@@ -97,7 +105,10 @@ export default function AdminDepositSettingsPage() {
             <select
               className="input-base"
               value={selectedNetwork}
-              onChange={(event) => setSelectedNetwork(event.target.value as NetworkType)}
+              onChange={(event) => {
+                setSelectedNetwork(event.target.value as NetworkType);
+                setUserSelectedNetwork(true);
+              }}
             >
               {NETWORK_OPTIONS.map((option) => (
                 <option key={option} value={option}>{option}</option>

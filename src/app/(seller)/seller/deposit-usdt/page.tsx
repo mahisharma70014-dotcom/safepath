@@ -26,7 +26,8 @@ export default function DepositUsdtPage() {
     wallet: { availableUsdt: number };
   }>("/api/wallet");
   const settings = data?.settings ?? defaultDepositSettings;
-  const [selectedNetwork, setSelectedNetwork] = useState<NetworkType>(settings.activeNetwork);
+  const [selectedNetwork, setSelectedNetwork] = useState<NetworkType>("TRC20");
+  const [networkInitialized, setNetworkInitialized] = useState(false);
   const [amount, setAmount] = useState(0);
   const [screenshotName, setScreenshotName] = useState("");
   const [screenshotDataUrl, setScreenshotDataUrl] = useState("");
@@ -36,12 +37,36 @@ export default function DepositUsdtPage() {
   const available = walletData?.wallet.availableUsdt ?? 0;
 
   useEffect(() => {
-    if (data?.settings) {
-      setSelectedNetwork(data.settings.activeNetwork);
+    if (typeof window === "undefined") {
+      return;
     }
-  }, [data]);
 
-  const currentWallet = settings.wallets[selectedNetwork] ?? settings.wallets[settings.activeNetwork];
+    const savedNetwork = localStorage.getItem("deposit-selected-network") as NetworkType | null;
+    if (savedNetwork && NETWORK_OPTIONS.includes(savedNetwork)) {
+      setSelectedNetwork(savedNetwork);
+      setNetworkInitialized(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!networkInitialized && data?.settings) {
+      setSelectedNetwork(data.settings.activeNetwork);
+      setNetworkInitialized(true);
+    }
+  }, [data?.settings, networkInitialized]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    localStorage.setItem("deposit-selected-network", selectedNetwork);
+  }, [selectedNetwork]);
+
+  const currentWallet =
+    settings.wallets[selectedNetwork] ??
+    settings.wallets[settings.activeNetwork] ??
+    defaultDepositSettings.wallets[selectedNetwork];
 
   const copyAddress = async () => {
     await navigator.clipboard.writeText(currentWallet.walletAddress);
