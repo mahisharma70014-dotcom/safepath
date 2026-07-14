@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+:root {
+  --bg-main: #030814;
+  --bg-surface: #081427;
+  --bg-surface-soft: #0e1e35;
+  --text-main: #e7f4ff;
+  --text-muted: #92b2cc;
+  --accent: #00d1ff;
+  --accent-strong: #0a84ff;
+  --success: #39d98a;
+  --warning: #ffcc66;
+  --danger: #ff5a77;
+  --border: rgba(83, 162, 210, 0.28);
+}
+
+@theme inline {
+  --color-background: var(--bg-main);
+  --color-foreground: var(--text-main);
+  --font-sans: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--text-main);
+  font-family: var(--font-space-grotesk), sans-serif;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(6, 131, 218, 0.16), transparent 38%),
+    radial-gradient(circle at 82% 8%, rgba(0, 223, 252, 0.15), transparent 36%),
+    linear-gradient(135deg, #02060f 0%, #051227 40%, #040a16 100%);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.glass-card {
+  border: 1px solid var(--border);
+  background: linear-gradient(145deg, rgba(10, 26, 46, 0.72), rgba(6, 17, 34, 0.68));
+  box-shadow: 0 16px 40px rgba(2, 11, 24, 0.52);
+  backdrop-filter: blur(12px);
+}
+
+.input-base {
+  width: 100%;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(90, 176, 231, 0.34);
+  background: rgba(7, 20, 39, 0.86);
+  color: var(--text-main);
+  padding: 0.78rem 0.9rem;
+  outline: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.input-base::placeholder {
+  color: #6b8ca7;
+}
+
+.input-base:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 209, 255, 0.2);
+}
+
+.btn-primary {
+  border-radius: 0.85rem;
+  border: 1px solid rgba(0, 209, 255, 0.38);
+  background: linear-gradient(90deg, rgba(0, 209, 255, 0.3), rgba(10, 132, 255, 0.46));
+  color: #e8f8ff;
+  transition: transform 140ms ease, filter 140ms ease;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  border-radius: 0.85rem;
+  border: 1px solid rgba(83, 162, 210, 0.28);
+  background: rgba(6, 19, 38, 0.62);
+  color: #cae8ff;
+}
+
+.panel-bg {
+  background: linear-gradient(170deg, rgba(4, 14, 29, 0.96), rgba(2, 9, 21, 0.98));
+}
+
+.animate-rise {
+  animation: rise 520ms ease both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
