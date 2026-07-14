@@ -7,13 +7,32 @@ import { NextRequest, NextResponse } from "next/server";
 
 function normalizeDepositSettings(rawData: Record<string, any>): DepositSettings {
   if (rawData.wallets && typeof rawData.wallets === "object") {
+    const mergedWallets = {
+      ...defaultDepositSettings.wallets,
+      ...rawData.wallets,
+    } as Record<NetworkType, any>;
+
+    const networks: NetworkType[] = ["TRC20", "BEP20", "ERC20"];
+    const normalizedWallets: Record<NetworkType, any> = {
+      TRC20: {} as any,
+      BEP20: {} as any,
+      ERC20: {} as any,
+    };
+
+    for (const net of networks) {
+      const raw = mergedWallets[net] ?? {};
+      normalizedWallets[net] = {
+        qrCodeDataUrl: raw.qrCodeDataUrl ?? defaultDepositSettings.wallets[net].qrCodeDataUrl,
+        walletAddress: raw.walletAddress ?? defaultDepositSettings.wallets[net].walletAddress,
+        walletLabel: raw.walletLabel ?? defaultDepositSettings.wallets[net].walletLabel,
+        enabled: typeof raw.enabled === "boolean" ? raw.enabled : Boolean(defaultDepositSettings.wallets[net].enabled),
+      };
+    }
+
     return {
       ...defaultDepositSettings,
       ...rawData,
-      wallets: {
-        ...defaultDepositSettings.wallets,
-        ...rawData.wallets,
-      },
+      wallets: normalizedWallets,
       activeNetwork: rawData.activeNetwork ?? rawData.network ?? defaultDepositSettings.activeNetwork,
     } as DepositSettings;
   }

@@ -81,13 +81,36 @@ export default function AdminDepositSettingsPage() {
               return;
             }
 
+            const networks: NetworkType[] = ["TRC20", "BEP20", "ERC20"];
+            const walletsToSave: Record<NetworkType, any> = {
+              TRC20: { ...defaultDepositSettings.wallets.TRC20 },
+              BEP20: { ...defaultDepositSettings.wallets.BEP20 },
+              ERC20: { ...defaultDepositSettings.wallets.ERC20 },
+            };
+
+            for (const net of networks) {
+              const raw = settings.wallets?.[net] ?? {};
+              walletsToSave[net] = {
+                qrCodeDataUrl: raw.qrCodeDataUrl ?? walletsToSave[net].qrCodeDataUrl,
+                walletAddress: raw.walletAddress ?? walletsToSave[net].walletAddress,
+                walletLabel: raw.walletLabel ?? walletsToSave[net].walletLabel,
+                enabled: typeof raw.enabled === "boolean" ? raw.enabled : Boolean(walletsToSave[net].enabled),
+              };
+            }
+
+            const settingsToSave: DepositSettings = {
+              ...settings,
+              activeNetwork: selectedNetwork,
+              wallets: walletsToSave as Record<NetworkType, any>,
+            };
+
             const response = await fetch("/api/settings/deposit", {
               method: "PUT",
               headers: {
                 "Content-Type": "application/json",
               },
               credentials: "include",
-              body: JSON.stringify(settings),
+              body: JSON.stringify(settingsToSave),
             });
 
             const payload = (await response.json()) as { message?: string };
