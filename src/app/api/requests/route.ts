@@ -74,6 +74,19 @@ export async function POST(request: NextRequest) {
           })
         : { userId: session.uid, availableUsdt: 0, lockedUsdt: 0, lastSettlementInr: 0, lastDepositUsdt: 0 };
 
+      const userSnapshot = await transaction.get(adminDb.collection(FIRESTORE_PATHS.users).doc(session.uid));
+      const userData = userSnapshot.exists ? userSnapshot.data() : {};
+      const banned = Boolean(userData?.banned);
+      const kycStatus = String(userData?.kycStatus ?? "pending").toLowerCase();
+
+      if (banned) {
+        throw new Error("Your account is blocked. Contact support.");
+      }
+
+      if ((body.type === "sell" || body.type === "withdraw") && kycStatus !== "approved") {
+        throw new Error("KYC must be approved before creating sell or withdraw requests.");
+      }
+
       if (body.type === "sell" || body.type === "withdraw") {
         if (body.amountUsdt > wallet.availableUsdt) {
           throw new Error("Amount exceeds available USDT balance.");

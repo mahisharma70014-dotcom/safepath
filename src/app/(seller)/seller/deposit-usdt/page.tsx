@@ -137,6 +137,7 @@ export default function DepositUsdtPage() {
             setAmount(0);
             setScreenshotName("");
             setScreenshotDataUrl("");
+            window.setTimeout(() => setSubmitted(false), 4000);
             void refresh();
           }}
         >
@@ -178,7 +179,11 @@ export default function DepositUsdtPage() {
       </PanelCard>
 
       {copied ? <Toast type="success" message="Wallet address copied." /> : null}
-      {submitted ? <Toast type="success" message="Deposit request submitted for admin verification." /> : null}
+      {submitted ? (
+        <div className="rounded-2xl border border-cyan-700/40 bg-cyan-500/10 p-4 text-sm text-cyan-100">
+          Deposit request submitted successfully. It will appear in your order history with Pending status and be reviewed by the admin team.
+        </div>
+      ) : null}
     </div>
   );
 }

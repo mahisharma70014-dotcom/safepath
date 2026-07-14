@@ -80,6 +80,22 @@ export default function AdminSetupPage() {
               throw new Error(payload.message ?? "Unable to setup admin.");
             }
 
+            const sessionResponse = await fetch("/api/auth/session", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                idToken,
+                fullName,
+                roleHint: "admin",
+              }),
+            });
+
+            if (!sessionResponse.ok) {
+              throw new Error("Admin session could not be created.");
+            }
+
             setError("");
             setToast(true);
             setTimeout(() => router.push("/admin/dashboard"), 600);

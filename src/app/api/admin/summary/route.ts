@@ -19,9 +19,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
-    const [usersSnapshot, requestsSnapshot] = await Promise.all([
+    const [usersSnapshot, requestsSnapshot, walletsSnapshot] = await Promise.all([
       adminDb.collection(FIRESTORE_PATHS.users).get(),
       adminDb.collection(FIRESTORE_PATHS.requests).get(),
+      adminDb.collection(FIRESTORE_PATHS.wallets).get(),
     ]);
 
     const requests: Array<FirebaseFirestore.DocumentData & { id: string }> = requestsSnapshot.docs.map((doc) => ({
@@ -35,6 +36,10 @@ export async function GET(request: NextRequest) {
     }).length;
 
     const completedSells = requests.filter((item) => item.type === "sell" && item.status === "Completed");
+    const depositRequests = requests.filter((item) => item.type === "deposit").length;
+    const withdrawalRequests = requests.filter((item) => item.type === "withdraw").length;
+    const completedTransactions = completedSells.length;
+    const totalWalletBalance = walletsSnapshot.docs.reduce((sum, doc) => sum + numberValue(doc.data().availableUsdt), 0);
     const revenue30d = completedSells.reduce((sum, item) => {
       const estimated = numberValue(item.estimatedInr);
       return sum + estimated;
@@ -62,6 +67,10 @@ export async function GET(request: NextRequest) {
         verifiedUsers: usersSnapshot.docs.filter((doc) => doc.data().role === "seller" || doc.data().role === "admin").length,
         pendingKyc,
         revenue30d,
+        depositRequests,
+        withdrawalRequests,
+        completedTransactions,
+        totalWalletBalance,
       },
       recentRequests,
     });

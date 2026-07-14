@@ -7,7 +7,7 @@ import type { RequestRecord } from "@/lib/data-model";
 
 export default function OrderHistoryPage() {
   const { data } = usePollingJson<{ requests: RequestRecord[] }>("/api/requests?scope=mine", 2500);
-  const orders = data?.requests ?? [];
+  const orders = (data?.requests ?? []).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   return (
     <div className="space-y-6">

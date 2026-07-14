@@ -54,6 +54,18 @@ export type RequestRecord = {
   destinationWallet?: string;
 };
 
+export type UserRecord = {
+  uid: string;
+  email: string;
+  fullName: string;
+  phone?: string;
+  role: "seller" | "admin";
+  kycStatus?: "pending" | "submitted" | "approved" | "rejected";
+  banned?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type SupportTicketStatus = "Open" | "In Progress" | "Resolved";
 
 export type SupportTicket = {

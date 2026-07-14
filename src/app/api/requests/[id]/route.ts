@@ -39,6 +39,11 @@ export async function PATCH(
         ? walletSnapshot.data()!
         : { availableUsdt: 0, lockedUsdt: 0, lastSettlementInr: 0, lastDepositUsdt: 0 };
 
+      if (requestData.type === "deposit" && previousStatus === "Pending" && body.status === "Processing") {
+        transaction.set(requestRef, { status: body.status, updatedAt: Timestamp.now() }, { merge: true });
+        return;
+      }
+
       if (requestData.type === "deposit" && body.status === "Completed" && previousStatus !== "Completed") {
         transaction.set(walletRef, {
           ...wallet,

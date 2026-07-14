@@ -12,10 +12,10 @@ const SETTINGS_KEY = "safepath_deposit_settings";
 
 export const defaultDepositSettings: DepositSettings = {
   qrCodeDataUrl: "",
-  walletAddress: "TQmSafepathDemoWalletAddress0001",
+  walletAddress: "",
   network: "TRC20",
   walletLabel: "Primary Treasury Wallet",
-  enabled: true,
+  enabled: false,
 };
 
 const canUseStorage = () => typeof window !== "undefined";

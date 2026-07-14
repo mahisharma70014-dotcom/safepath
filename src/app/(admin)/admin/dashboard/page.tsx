@@ -9,6 +9,10 @@ type AdminSummaryResponse = {
     verifiedUsers: number;
     pendingKyc: number;
     revenue30d: number;
+    depositRequests: number;
+    withdrawalRequests: number;
+    completedTransactions: number;
+    totalWalletBalance: number;
   };
   recentRequests: Array<{
     id: string;
@@ -22,7 +26,16 @@ type AdminSummaryResponse = {
 
 export default function AdminDashboardPage() {
   const { data } = usePollingJson<AdminSummaryResponse>("/api/admin/summary", 3000);
-  const metrics = data?.metrics ?? { totalUsers: 0, verifiedUsers: 0, pendingKyc: 0, revenue30d: 0 };
+  const metrics = data?.metrics ?? {
+    totalUsers: 0,
+    verifiedUsers: 0,
+    pendingKyc: 0,
+    revenue30d: 0,
+    depositRequests: 0,
+    withdrawalRequests: 0,
+    completedTransactions: 0,
+    totalWalletBalance: 0,
+  };
   const recentRequests = data?.recentRequests ?? [];
 
   return (
@@ -33,6 +46,21 @@ export default function AdminDashboardPage() {
           <p className="text-2xl font-semibold text-slate-100">{metrics.totalUsers.toLocaleString("en-IN")}</p>
           <p className="mt-2 text-sm text-cyan-300">Live registered accounts</p>
         </PanelCard>
+        <PanelCard title="Wallet Balance">
+          <p className="text-2xl font-semibold text-slate-100">USDT {metrics.totalWalletBalance.toLocaleString("en-IN")}</p>
+          <p className="mt-2 text-sm text-cyan-300">Live wallet balance across users</p>
+        </PanelCard>
+        <PanelCard title="Deposit Requests">
+          <p className="text-2xl font-semibold text-slate-100">{metrics.depositRequests.toLocaleString("en-IN")}</p>
+          <p className="mt-2 text-sm text-cyan-300">Pending + completed deposits</p>
+        </PanelCard>
+        <PanelCard title="Withdrawal Requests">
+          <p className="text-2xl font-semibold text-slate-100">{metrics.withdrawalRequests.toLocaleString("en-IN")}</p>
+          <p className="mt-2 text-sm text-cyan-300">Withdrawal activity count</p>
+        </PanelCard>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <PanelCard title="Verified Users">
           <p className="text-2xl font-semibold text-slate-100">{metrics.verifiedUsers.toLocaleString("en-IN")}</p>
           <p className="mt-2 text-sm text-cyan-300">Users with active role</p>
@@ -40,6 +68,10 @@ export default function AdminDashboardPage() {
         <PanelCard title="Pending KYC">
           <p className="text-2xl font-semibold text-slate-100">{metrics.pendingKyc.toLocaleString("en-IN")}</p>
           <p className="mt-2 text-sm text-cyan-300">Awaiting KYC decision</p>
+        </PanelCard>
+        <PanelCard title="Completed Transactions">
+          <p className="text-2xl font-semibold text-slate-100">{metrics.completedTransactions.toLocaleString("en-IN")}</p>
+          <p className="mt-2 text-sm text-cyan-300">Completed sell orders</p>
         </PanelCard>
         <PanelCard title="Revenue (30d)">
           <p className="text-2xl font-semibold text-slate-100">INR {metrics.revenue30d.toLocaleString("en-IN")}</p>

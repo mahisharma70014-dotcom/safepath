@@ -35,16 +35,21 @@ export const bootstrapSessionUser = async ({ idToken, fullName, phone, roleHint 
     throw new Error("Authenticated user email is missing.");
   }
 
-  const role = resolveRole(email, roleHint);
   const userRef = adminDb.collection("users").doc(decoded.uid);
   const walletRef = adminDb.collection("wallets").doc(decoded.uid);
   const existing = await userRef.get();
+  const existingRole = existing.exists ? String(existing.data()?.role ?? "") : "";
+  const role = existingRole === "admin" || existingRole === "seller"
+    ? existingRole
+    : resolveRole(email, roleHint);
 
   const userPayload = {
     email,
     fullName: fullName ?? existing.data()?.fullName ?? decoded.name ?? "SafePath User",
     phone: phone ?? existing.data()?.phone ?? "",
     role,
+    kycStatus: existing.data()?.kycStatus ?? "pending",
+    banned: existing.data()?.banned ?? false,
     updatedAt: Timestamp.now(),
     createdAt: existing.exists ? existing.data()?.createdAt ?? Timestamp.now() : Timestamp.now(),
   };
