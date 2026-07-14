@@ -2,6 +2,9 @@ import { adminDb, isFirebaseAdminConfigured } from "@/lib/firebase-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { Timestamp } from "firebase-admin/firestore";
 
+// Hardcoded admin setup credentials - CHANGE THESE
+const ADMIN_SETUP_KEY = process.env.ADMIN_SETUP_KEY || "admin@123";
+
 export async function POST(request: NextRequest) {
   try {
     if (!isFirebaseAdminConfigured) {
@@ -12,13 +15,22 @@ export async function POST(request: NextRequest) {
     }
 
     const body = (await request.json()) as {
+      setupKey: string;
       uid: string;
       email: string;
       fullName: string;
       adminPassword?: string;
     };
 
-    const { uid, email, fullName, adminPassword } = body;
+    const { setupKey, uid, email, fullName, adminPassword } = body;
+
+    // Verify setup key
+    if (setupKey !== ADMIN_SETUP_KEY) {
+      return NextResponse.json(
+        { message: "Invalid setup key" },
+        { status: 401 },
+      );
+    }
 
     if (!uid || !email) {
       return NextResponse.json(

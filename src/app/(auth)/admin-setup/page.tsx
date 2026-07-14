@@ -27,10 +27,17 @@ export default function AdminSetupPage() {
           setLoading(true);
 
           const formData = new FormData(event.currentTarget);
+          const setupKey = String(formData.get("setupKey") ?? "").trim();
           const email = String(formData.get("email") ?? "").trim().toLowerCase();
           const password = String(formData.get("password") ?? "");
           const confirmPassword = String(formData.get("confirmPassword") ?? "");
           const fullName = String(formData.get("fullName") ?? "").trim();
+
+          if (!setupKey) {
+            setError("Setup key is required.");
+            setLoading(false);
+            return;
+          }
 
           if (password !== confirmPassword) {
             setError("Passwords do not match.");
@@ -60,6 +67,7 @@ export default function AdminSetupPage() {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
+                setupKey,
                 uid: credential.user.uid,
                 email,
                 fullName,
@@ -85,6 +93,14 @@ export default function AdminSetupPage() {
           }
         }}
       >
+        <input
+          name="setupKey"
+          type="password"
+          className="input-base"
+          placeholder="Setup Key"
+          required
+          disabled={loading}
+        />
         <input
           name="fullName"
           className="input-base"
