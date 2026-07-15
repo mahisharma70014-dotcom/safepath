@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
 
     const completedSells = requests.filter((item) => item.type === "sell" && item.status === "Completed");
     const depositRequests = requests.filter((item) => item.type === "deposit").length;
+    const pendingDepositRequests = requests.filter((item) => item.type === "deposit" && item.status === "Pending").length;
     const withdrawalRequests = requests.filter((item) => item.type === "withdraw").length;
     const completedTransactions = completedSells.length;
     const totalWalletBalance = walletsSnapshot.docs.reduce((sum, doc) => sum + numberValue(doc.data().availableUsdt), 0);
@@ -61,6 +62,24 @@ export async function GET(request: NextRequest) {
         createdAt: timeValue(item.createdAt),
       }));
 
+    const recentDepositRequests = requests
+      .filter((item) => item.type === "deposit")
+      .sort((a, b) => {
+        const aTime = new Date(String(a.createdAt ?? "")).getTime() || 0;
+        const bTime = new Date(String(b.createdAt ?? "")).getTime() || 0;
+        return bTime - aTime;
+      })
+      .slice(0, 8)
+      .map((item) => ({
+        id: item.id,
+        type: String(item.type ?? ""),
+        status: String(item.status ?? ""),
+        amountUsdt: numberValue(item.amountUsdt),
+        userEmail: String(item.userEmail ?? ""),
+        network: String(item.network ?? ""),
+        createdAt: timeValue(item.createdAt),
+      }));
+
     return NextResponse.json({
       metrics: {
         totalUsers: usersSnapshot.size,
@@ -68,11 +87,13 @@ export async function GET(request: NextRequest) {
         pendingKyc,
         revenue30d,
         depositRequests,
+        pendingDepositRequests,
         withdrawalRequests,
         completedTransactions,
         totalWalletBalance,
       },
       recentRequests,
+      recentDepositRequests,
     });
   } catch {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });

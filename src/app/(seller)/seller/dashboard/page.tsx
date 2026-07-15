@@ -44,7 +44,9 @@ export default function SellerDashboardPage() {
     )
     .reduce((sum, request) => sum + (request.estimatedInr ?? 0), 0);
 
-  const recentRequests = requests.slice(0, 5);
+  const pendingDepositCount = requests.filter((request) => request.type === 'deposit' && request.status === 'Pending').length;
+  const recentTransactions = requests.slice(0, 5);
+  const recentDepositRequests = requests.filter((request) => request.type === 'deposit').slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -70,7 +72,7 @@ export default function SellerDashboardPage() {
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <PanelCard title="Wallet Balance">
           <p className="text-2xl font-semibold text-slate-100">
             {wallet.availableUsdt.toLocaleString("en-IN", { maximumFractionDigits: 2 })} USDT
@@ -93,40 +95,79 @@ export default function SellerDashboardPage() {
           </p>
           <p className="mt-2 text-sm text-cyan-300">Sell requests awaiting completion</p>
         </PanelCard>
+        <PanelCard title="Pending Deposits">
+          <p className="text-2xl font-semibold text-slate-100">{pendingDepositCount}</p>
+          <p className="mt-2 text-sm text-cyan-300">Deposit requests awaiting approval</p>
+        </PanelCard>
       </div>
 
-      <PanelCard title="Recent Requests" subtitle="Latest activity from your live account">
-        <div className="overflow-x-auto rounded-xl border border-cyan-800/30">
-          <table className="min-w-full text-sm">
-            <thead className="bg-[#071830] text-left text-slate-300">
-              <tr>
-                <th className="px-4 py-3 font-medium">Type</th>
-                <th className="px-4 py-3 font-medium">USDT</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentRequests.length ? (
-                recentRequests.map((request) => (
-                  <tr key={request.id} className="border-t border-cyan-900/20 text-slate-200">
-                    <td className="px-4 py-3 uppercase">{request.type}</td>
-                    <td className="px-4 py-3">{request.amountUsdt}</td>
-                    <td className="px-4 py-3">{request.status}</td>
-                    <td className="px-4 py-3">{request.createdAt}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr className="border-t border-cyan-900/20 text-slate-400">
-                  <td className="px-4 py-3" colSpan={4}>
-                    No requests yet.
-                  </td>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <PanelCard title="Recent Transactions" subtitle="Latest activity from your live account">
+          <div className="overflow-x-auto rounded-xl border border-cyan-800/30">
+            <table className="min-w-full text-sm">
+              <thead className="bg-[#071830] text-left text-slate-300">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Type</th>
+                  <th className="px-4 py-3 font-medium">Amount</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Created</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </PanelCard>
+              </thead>
+              <tbody>
+                {recentTransactions.length ? (
+                  recentTransactions.map((request) => (
+                    <tr key={request.id} className="border-t border-cyan-900/20 text-slate-200">
+                      <td className="px-4 py-3 uppercase">{request.type}</td>
+                      <td className="px-4 py-3">{request.amountUsdt}</td>
+                      <td className="px-4 py-3">{request.status}</td>
+                      <td className="px-4 py-3">{request.createdAt}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr className="border-t border-cyan-900/20 text-slate-400">
+                    <td className="px-4 py-3" colSpan={4}>
+                      No activity yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </PanelCard>
+
+        <PanelCard title="Recent Deposit Requests" subtitle="Your latest deposit submissions">
+          <div className="overflow-x-auto rounded-xl border border-cyan-800/30">
+            <table className="min-w-full text-sm">
+              <thead className="bg-[#071830] text-left text-slate-300">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Amount</th>
+                  <th className="px-4 py-3 font-medium">Network</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentDepositRequests.length ? (
+                  recentDepositRequests.map((request) => (
+                    <tr key={request.id} className="border-t border-cyan-900/20 text-slate-200">
+                      <td className="px-4 py-3">{request.amountUsdt} USDT</td>
+                      <td className="px-4 py-3">{request.network}</td>
+                      <td className="px-4 py-3">{request.status}</td>
+                      <td className="px-4 py-3">{request.createdAt}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr className="border-t border-cyan-900/20 text-slate-400">
+                    <td className="px-4 py-3" colSpan={4}>
+                      No deposit requests yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </PanelCard>
+      </div>
     </div>
   );
 }

@@ -26,6 +26,7 @@ export default function DepositUsdtPage() {
   const [copied, setCopied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [submitted, setSubmitted] = useState(false);
   const available = walletData?.wallet.availableUsdt ?? 0;
   const depositRequests = (requestsData?.requests ?? []).filter((request) => request.type === 'deposit');
   const totalDeposits = depositRequests.length;
@@ -139,7 +140,8 @@ export default function DepositUsdtPage() {
       setTransactionHash('');
       setScreenshotName('');
       setScreenshotDataUrl('');
-      setToast({ type: 'success', message: 'Deposit submitted successfully. Admin review is in progress.' });
+      setSubmitted(true);
+      setToast({ type: 'success', message: 'Deposit Request Submitted. Pending admin approval.' });
       await refresh();
       await refreshRequests();
     } catch (error) {
@@ -300,6 +302,12 @@ export default function DepositUsdtPage() {
             </div>
           ))}
         </div>
+        {submitted ? (
+          <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-100">
+            <p className="font-medium">Deposit Request Submitted</p>
+            <p className="text-sm text-slate-300">Your deposit request is now visible in Pending Approval and will update as the admin acts on it.</p>
+          </div>
+        ) : null}
 
         {depositRequests.length === 0 ? (
           <div className="rounded-xl border border-dashed border-cyan-800/40 p-6 text-center text-sm text-slate-400">
@@ -313,9 +321,9 @@ export default function DepositUsdtPage() {
                   <th className="px-3 py-2">Deposit ID</th>
                   <th className="px-3 py-2">Amount</th>
                   <th className="px-3 py-2">Network</th>
-                  <th className="px-3 py-2">Wallet</th>
-                  <th className="px-3 py-2">Txn Hash</th>
-                  <th className="px-3 py-2">Date & Time</th>
+                  <th className="px-3 py-2">UTR / TxID</th>
+                  <th className="px-3 py-2">Screenshot</th>
+                  <th className="px-3 py-2">Created</th>
                   <th className="px-3 py-2">Status</th>
                 </tr>
               </thead>
@@ -328,8 +336,16 @@ export default function DepositUsdtPage() {
                       <td className="px-3 py-3 text-slate-300">{request.id.slice(0, 8)}</td>
                       <td className="px-3 py-3 text-slate-100">{request.amountUsdt} USDT</td>
                       <td className="px-3 py-3 text-slate-300">{request.network}</td>
-                      <td className="px-3 py-3 text-slate-300">{request.walletAddress ? `${request.walletAddress.slice(0, 12)}...` : '—'}</td>
                       <td className="px-3 py-3 text-slate-300">{request.transactionHash ?? '—'}</td>
+                      <td className="px-3 py-3 text-slate-300">
+                        {request.screenshotName ? (
+                          <span className="inline-flex items-center gap-2 rounded-full bg-slate-800 px-2 py-1 text-xs text-slate-200">
+                            {request.screenshotName}
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
                       <td className="px-3 py-3 text-slate-300">{request.createdAt}</td>
                       <td className="px-3 py-3"><StatusPill status={request.status} /></td>
                     </tr>
