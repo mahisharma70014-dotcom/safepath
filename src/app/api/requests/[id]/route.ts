@@ -1,3 +1,4 @@
+import type { TransactionStatus } from "@/lib/data-model";
 import { adminDb } from "@/lib/firebase-admin";
 import { FIRESTORE_PATHS } from "@/lib/firestore-paths";
 import { requireSession } from "@/lib/request-session";
@@ -15,10 +16,22 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const body = (await request.json()) as { status?: "Pending" | "Processing" | "Completed" | "Rejected" };
+    const body = (await request.json()) as {
+      status?: TransactionStatus;
+      rejectionReason?: string;
+      adminNote?: string;
+    };
     if (!body.status) {
       return NextResponse.json({ message: "Missing status" }, { status: 400 });
     }
+
+    const normalizedStatus = body.status === "Approved" ? "Approved" : body.status === "Completed" ? "Completed" : body.status;
+    const responseBody = {
+      status: normalizedStatus,
+      updatedAt: Timestamp.now(),
+      ...(body.rejectionReason?.trim() ? { rejectionReason: body.rejectionReason.trim() } : {}),
+      ...(body.adminNote?.trim() ? { adminNote: body.adminNote.trim() } : {}),
+    };
 
     const requestRef = adminDb.collection(FIRESTORE_PATHS.requests).doc(id);
     await adminDb.runTransaction(async (transaction) => {
@@ -28,8 +41,8 @@ export async function PATCH(
       }
 
       const requestData = requestSnapshot.data()!;
-      const previousStatus = requestData.status as string;
-      if (previousStatus === body.status) {
+      const previousStatus = String(requestData.status ?? "Pending");
+      if (previousStatus === normalizedStatus) {
         return;
       }
 
@@ -39,22 +52,17 @@ export async function PATCH(
         ? walletSnapshot.data()!
         : { availableUsdt: 0, lockedUsdt: 0, lastSettlementInr: 0, lastDepositUsdt: 0 };
 
-      if (requestData.type === "deposit" && previousStatus === "Pending" && body.status === "Processing") {
-        transaction.set(requestRef, { status: body.status, updatedAt: Timestamp.now() }, { merge: true });
-        return;
-      }
-
-      if (requestData.type === "deposit" && body.status === "Completed" && previousStatus !== "Completed") {
+      if (requestData.type === "deposit" && normalizedStatus === "Approved" && previousStatus !== "Approved") {
         transaction.set(walletRef, {
           ...wallet,
-          availableUsdt: wallet.availableUsdt + requestData.amountUsdt,
-          lastDepositUsdt: requestData.amountUsdt,
+          availableUsdt: Number(wallet.availableUsdt ?? 0) + Number(requestData.amountUsdt ?? 0),
+          lastDepositUsdt: Number(requestData.amountUsdt ?? 0),
           updatedAt: Timestamp.now(),
         }, { merge: true });
       }
 
       if (requestData.type === "sell") {
-        if (body.status === "Rejected" && previousStatus !== "Rejected") {
+        if (normalizedStatus === "Rejected" && previousStatus !== "Rejected") {
           transaction.set(walletRef, {
             ...wallet,
             availableUsdt: wallet.availableUsdt + requestData.amountUsdt,
@@ -74,7 +82,7 @@ export async function PATCH(
       }
 
       if (requestData.type === "withdraw") {
-        if (body.status === "Rejected" && previousStatus !== "Rejected") {
+        if (normalizedStatus === "Rejected" && previousStatus !== "Rejected") {
           transaction.set(walletRef, {
             ...wallet,
             availableUsdt: wallet.availableUsdt + requestData.amountUsdt,
@@ -92,10 +100,7 @@ export async function PATCH(
         }
       }
 
-      transaction.set(requestRef, {
-        status: body.status,
-        updatedAt: Timestamp.now(),
-      }, { merge: true });
+      transaction.set(requestRef, responseBody, { merge: true });
     });
 
     return NextResponse.json({ success: true });

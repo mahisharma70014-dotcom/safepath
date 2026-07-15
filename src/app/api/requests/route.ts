@@ -9,6 +9,7 @@ const serialize = (record: FirebaseFirestore.DocumentData, id: string): RequestR
   id,
   userId: String(record.userId ?? ""),
   userEmail: String(record.userEmail ?? ""),
+  userName: record.userName ? String(record.userName) : undefined,
   type: (record.type ?? "deposit") as RequestRecord["type"],
   amountUsdt: typeof record.amountUsdt === "number" ? record.amountUsdt : 0,
   network: (record.network ?? "TRC20") as RequestRecord["network"],
@@ -24,11 +25,14 @@ const serialize = (record: FirebaseFirestore.DocumentData, id: string): RequestR
   walletAddress: record.walletAddress ? String(record.walletAddress) : undefined,
   screenshotName: record.screenshotName ? String(record.screenshotName) : undefined,
   screenshotDataUrl: record.screenshotDataUrl ? String(record.screenshotDataUrl) : undefined,
+  transactionHash: record.transactionHash ? String(record.transactionHash) : undefined,
   paymentMethod: record.paymentMethod as RequestRecord["paymentMethod"],
   rate: typeof record.rate === "number" ? record.rate : undefined,
   estimatedInr: typeof record.estimatedInr === "number" ? record.estimatedInr : undefined,
   payoutDetails: record.payoutDetails ? String(record.payoutDetails) : undefined,
   destinationWallet: record.destinationWallet ? String(record.destinationWallet) : undefined,
+  rejectionReason: record.rejectionReason ? String(record.rejectionReason) : undefined,
+  adminNote: record.adminNote ? String(record.adminNote) : undefined,
 });
 
 export async function GET(request: NextRequest) {
@@ -57,7 +61,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
-    const body = (await request.json()) as RequestRecord;
+    const body = (await request.json()) as Partial<RequestRecord>;
+    const validTypes = new Set(["deposit", "sell", "withdraw"]);
+    const validNetworks = new Set(["TRC20", "BEP20", "ERC20"]);
+
+    if (!body.type || !validTypes.has(body.type)) {
+      throw new Error("Invalid request type.");
+    }
+
+    if (body.amountUsdt === undefined || typeof body.amountUsdt !== "number" || !Number.isFinite(body.amountUsdt) || body.amountUsdt <= 0) {
+      throw new Error("Enter a valid amount.");
+    }
+
+    if (body.network && !validNetworks.has(body.network)) {
+      throw new Error("Invalid network.");
+    }
+
+    if (body.type === "deposit") {
+      if (!body.walletAddress?.trim()) {
+        throw new Error("Wallet address is required.");
+      }
+      if (!body.screenshotName?.trim() || !body.screenshotDataUrl?.trim()) {
+        throw new Error("Payment proof is required.");
+      }
+    }
+
     const walletRef = adminDb.collection(FIRESTORE_PATHS.wallets).doc(session.uid);
     const sellSettingsRef = adminDb.doc(FIRESTORE_PATHS.sellSettings);
     const requestsRef = adminDb.collection(FIRESTORE_PATHS.requests).doc();
@@ -88,17 +116,21 @@ export async function POST(request: NextRequest) {
       }
 
       if (body.type === "sell" || body.type === "withdraw") {
-        if (body.amountUsdt > wallet.availableUsdt) {
+        const amount = typeof body.amountUsdt === "number" ? body.amountUsdt : 0;
+        if (amount > wallet.availableUsdt) {
           throw new Error("Amount exceeds available USDT balance.");
         }
       }
 
+      const userName = String(userData?.fullName ?? userData?.displayName ?? session.email ?? "");
+
       let requestPayload: FirebaseFirestore.DocumentData = {
         userId: session.uid,
         userEmail: session.email,
+        userName,
         type: body.type,
         amountUsdt: body.amountUsdt,
-        network: body.network,
+        network: body.network ?? "TRC20",
         status: "Pending",
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -110,6 +142,7 @@ export async function POST(request: NextRequest) {
           walletAddress: body.walletAddress,
           screenshotName: body.screenshotName,
           screenshotDataUrl: body.screenshotDataUrl,
+          transactionHash: body.transactionHash?.trim() || undefined,
         };
       }
 
@@ -127,23 +160,25 @@ export async function POST(request: NextRequest) {
               ? `Bank: ${settings.bankName} | A/C: ${settings.accountNumber} | IFSC: ${settings.ifsc}`
               : `UPI: ${settings.upiId} | Bank A/C: ${settings.accountNumber}`;
 
+        const amount = typeof body.amountUsdt === "number" ? body.amountUsdt : 0;
         requestPayload = {
           ...requestPayload,
           paymentMethod: method,
           rate,
-          estimatedInr: body.amountUsdt * rate,
+          estimatedInr: amount * rate,
           payoutDetails,
         };
 
         transaction.set(walletRef, {
           ...wallet,
-          availableUsdt: wallet.availableUsdt - body.amountUsdt,
-          lockedUsdt: wallet.lockedUsdt + body.amountUsdt,
+          availableUsdt: wallet.availableUsdt - amount,
+          lockedUsdt: wallet.lockedUsdt + amount,
           updatedAt: Timestamp.now(),
         }, { merge: true });
       }
 
       if (body.type === "withdraw") {
+        const amount = typeof body.amountUsdt === "number" ? body.amountUsdt : 0;
         requestPayload = {
           ...requestPayload,
           destinationWallet: body.destinationWallet,
@@ -153,8 +188,8 @@ export async function POST(request: NextRequest) {
 
         transaction.set(walletRef, {
           ...wallet,
-          availableUsdt: wallet.availableUsdt - body.amountUsdt,
-          lockedUsdt: wallet.lockedUsdt + body.amountUsdt,
+          availableUsdt: wallet.availableUsdt - amount,
+          lockedUsdt: wallet.lockedUsdt + amount,
           updatedAt: Timestamp.now(),
         }, { merge: true });
       }

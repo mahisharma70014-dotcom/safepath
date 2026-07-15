@@ -1,5 +1,5 @@
 export type NetworkType = "TRC20" | "BEP20" | "ERC20";
-export type TransactionStatus = "Pending" | "Processing" | "Completed" | "Rejected";
+export type TransactionStatus = "Pending" | "Processing" | "Completed" | "Approved" | "Rejected";
 export type PaymentMethod = "UPI" | "CDM" | "Mix";
 
 export type DepositWalletConfig = {
@@ -42,6 +42,7 @@ export type RequestRecord = {
   id: string;
   userId: string;
   userEmail: string;
+  userName?: string;
   type: "deposit" | "sell" | "withdraw";
   amountUsdt: number;
   network: NetworkType;
@@ -51,11 +52,14 @@ export type RequestRecord = {
   walletAddress?: string;
   screenshotName?: string;
   screenshotDataUrl?: string;
+  transactionHash?: string;
   paymentMethod?: PaymentMethod;
   rate?: number;
   estimatedInr?: number;
   payoutDetails?: string;
   destinationWallet?: string;
+  rejectionReason?: string;
+  adminNote?: string;
 };
 
 export type UserRecord = {
